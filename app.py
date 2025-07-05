@@ -10,8 +10,13 @@ from sklearn.metrics.pairwise import cosine_similarity
 def load_data():
     # Google Sheets 認証
     scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
-    creds_dict = st.secrets["gcp_service_account"]
-    creds = ServiceAccountCredentials.from_json_keyfile_name("credentials.json", scope)
+    if "gcp_service_account" in st.secrets:
+        # Streamlit Cloud（本番）用
+        creds_dict = st.secrets["gcp_service_account"]
+        creds = ServiceAccountCredentials.from_json_keyfile_dict(dict(creds_dict), scope)
+    else:
+    # ローカル開発用
+        creds = ServiceAccountCredentials.from_json_keyfile_name("credentials.json", scope)
     client = gspread.authorize(creds)
     # シート読み込み
     spreadsheet = client.open("SOZOW_スクールマッチング")
