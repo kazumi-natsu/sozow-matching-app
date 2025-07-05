@@ -155,6 +155,7 @@ def calculate_matching_score(student, mentor):
 
 
 # === Streamlit アプリ ===
+st.set_page_config(layout="wide")
 st.title("SOZOWメンターマッチングアプリ")
 
 selected_id = st.selectbox("スクール生を選択", student_df["(編集不可)スクールID"].unique())
