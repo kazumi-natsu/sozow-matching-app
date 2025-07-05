@@ -8,14 +8,12 @@ from sklearn.metrics.pairwise import cosine_similarity
 # --- データ取得を関数化 ---
 @st.cache_data(ttl=600)  # 600秒（10分）ごとに再読込する設定。必要に応じて調整
 def load_data():
-    # Google Sheets 認証
+# Google Sheets 認証
     scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
     if "gcp_service_account" in st.secrets:
-        # Streamlit Cloud（本番）用
         creds_dict = st.secrets["gcp_service_account"]
         creds = ServiceAccountCredentials.from_json_keyfile_dict(dict(creds_dict), scope)
     else:
-    # ローカル開発用
         creds = ServiceAccountCredentials.from_json_keyfile_name("credentials.json", scope)
     client = gspread.authorize(creds)
     # シート読み込み
