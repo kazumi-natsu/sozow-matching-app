@@ -158,11 +158,6 @@ def calculate_matching_score(student, mentor):
 st.set_page_config(layout="wide")
 st.title("SOZOWメンターマッチングアプリ")
 
-if st.button("データ再読込（キャッシュクリア）"):
-    load_data.clear()  # cache_dataのクリア
-    st.experimental_rerun()  # ページ再読み込み
-selected_id = st.selectbox("スクール生を選択", student_df["(編集不可)スクールID"].unique())
-selected_student = student_df[student_df["(編集不可)スクールID"] == selected_id].iloc[0]
     
 # スコア計算
 mentor_df["追加可能人数"] = pd.to_numeric(mentor_df["追加可能人数"], errors="coerce").fillna(0).astype(int)
