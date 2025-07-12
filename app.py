@@ -158,8 +158,6 @@ if selected_id:
     mentor_df["マッチングスコア"] = scores
     mentor_df["おすすめ理由"] = reasons
 
-    st.write("全メンターデータ（スコア計算後）:", mentor_df[["ニックネーム", "マッチングスコア", "追加可能人数", "おすすめ理由"]])
-
     matched = mentor_df[mentor_df["マッチングスコア"] > 0].sort_values("マッチングスコア", ascending=False)
 
     if matched.empty:
