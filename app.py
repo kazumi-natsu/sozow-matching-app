@@ -11,10 +11,8 @@ import os
 def load_data():
     scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
 
-    # ローカル認証
     if os.path.exists("credentials.json"):
         creds = ServiceAccountCredentials.from_json_keyfile_name("credentials.json", scope)
-    # Cloud認証（secrets）
     elif "gcp_service_account" in st.secrets and st.secrets["gcp_service_account"].get("private_key"):
         creds = ServiceAccountCredentials.from_json_keyfile_dict(st.secrets["gcp_service_account"], scope)
     else:
@@ -22,7 +20,7 @@ def load_data():
         st.stop()
 
     client = gspread.authorize(creds)
-    spreadsheet = client.open_by_key("1ISs5mqSRdZfF3NVOt60VFtY8p8HsM0ZkM3sfu3cPzVE")  # ←ここに実際のIDを入れる
+    spreadsheet = client.open_by_key("あなたのスプレッドシートIDをここに")
     student_df = pd.DataFrame(spreadsheet.worksheet("スクール生情報").get_all_records())
     mentor_df = pd.DataFrame(spreadsheet.worksheet("メンター情報").get_all_records())
     return student_df, mentor_df
@@ -39,15 +37,18 @@ def calculate_text_similarity(text1, text2):
 def extract_possible_slots(student):
     slots = []
     for col in student.index:
-        if col.startswith("1on1可能時間_") and student[col].strip():
-            days = [d.strip() for d in student[col].split(",")]
-            try:
-                hour = col.split("_")[-1].replace(":", "").replace("〜", "").replace("-", "")
-                for day in days:
-                    slot = f"1on1可能時間_{day}_{hour}-"
-                    slots.append(slot)
-            except:
-                continue
+        if "1on1可能時間" in col and "[" in col:
+            value = student[col]
+            if isinstance(value, str) and value.strip():
+                days = [d.strip() for d in value.split(",")]
+                try:
+                    hour = col.split("[")[-1].split(":")[0].strip()
+                    for day in days:
+                        if day in ["月", "火", "水", "木", "金", "土", "日"]:
+                            slot = f"1on1可能時間_{day}_{hour}00-"
+                            slots.append(slot)
+                except:
+                    continue
     return slots
 
 # --- マッチングスコア計算 ---
@@ -67,8 +68,8 @@ def calculate_matching_score(student, mentor):
     score = 50
     game_matching_score = 0
     matched_keywords = []
-
-    student_text = student.get("得意なこと", "") + student.get("興味のあること", "")
+    student_text = student.get("お子さまの得意なこと、好きなことを教えてください", "") + \
+                   student.get("興味がある分野をお答えください", "")
     for col in mentor.index:
         if col.startswith("ゲーム_"):
             game_name = col.replace("ゲーム_", "")
@@ -102,9 +103,9 @@ def calculate_matching_score(student, mentor):
         score += 10
         reasons.append("性別一致（本人と同じ）")
 
-    sim1 = calculate_text_similarity(student.get("得意なこと", ""), mentor.get("得意なこと趣味興味のあること", "") + " " + game_info)
-    sim2 = calculate_text_similarity(student.get("興味のあること", ""), mentor.get("得意なこと趣味興味のあること", "") + " " + game_info)
-    sim3 = calculate_text_similarity(student.get("SOZOWへの期待", ""), mentor.get("特にどんなスクール生のサポートが得意か", "") + " " + game_info)
+    sim1 = calculate_text_similarity(student.get("お子さまの得意なこと、好きなことを教えてください", ""), mentor.get("得意なこと趣味興味のあること", "") + " " + game_info)
+    sim2 = calculate_text_similarity(student.get("興味がある分野をお答えください", ""), mentor.get("得意なこと趣味興味のあること", "") + " " + game_info)
+    sim3 = calculate_text_similarity(student.get("お子さまがSOZOWスクールに期待していること、楽しみにしていることなどを教えてください", ""), mentor.get("特にどんなスクール生のサポートが得意か", "") + " " + game_info)
     similarity_score = (sim1 + sim2 + sim3) / 3
     score += similarity_score * 20
 
@@ -113,8 +114,9 @@ def calculate_matching_score(student, mentor):
     if sim3 > 0.15: reasons.append("スクールへの期待が似ている")
 
     sim_relation = calculate_text_similarity(
-        student.get("相性の良い大人の特徴", ""),
-        mentor.get("特にどんなスクール生のサポートが得意か", "")
+        student.get("お子さまが今まで関わった大人の中で、良好なコミュニケーションがとれていた方に共通する特徴を教えてください", "") +
+        student.get("相性の良い大人", ""),
+        mentor.get("性格・コミュニケーション特性", "") + " " + mentor.get("特にどんなスクール生のサポートが得意か", "")
     )
     if sim_relation > 0.2:
         score += 10
@@ -153,9 +155,15 @@ if selected_id:
 
     mentor_df["マッチングスコア"] = scores
     mentor_df["おすすめ理由"] = reasons
+
+    st.write("全メンターデータ（スコア計算後）:", mentor_df[["ニックネーム", "マッチングスコア", "追加可能人数", "おすすめ理由"]])
+
     matched = mentor_df[mentor_df["マッチングスコア"] > 0].sort_values("マッチングスコア", ascending=False)
 
-    st.markdown("### 🎯 おすすめメンター一覧")
-    st.dataframe(matched[["ニックネーム", "マッチングスコア", "追加可能人数", "属性_性別", "おすすめ理由"]].head(10))
+    if matched.empty:
+        st.warning("条件に一致するメンターがいません。")
+    else:
+        st.markdown("### 🎯 おすすめメンター一覧")
+        st.dataframe(matched[["ニックネーム", "マッチングスコア", "追加可能人数", "属性_性別", "おすすめ理由"]].head(10))
 else:
     st.info("スクール生を選択してください。")
