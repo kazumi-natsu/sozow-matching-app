@@ -20,7 +20,7 @@ def load_data():
         st.stop()
 
     client = gspread.authorize(creds)
-    spreadsheet = client.open_by_key("あなたのスプレッドシートIDをここに")
+    spreadsheet = client.open_by_key("1ISs5mqSRdZfF3NVOt60VFtY8p8HsM0ZkM3sfu3cPzVE")
     student_df = pd.DataFrame(spreadsheet.worksheet("スクール生情報").get_all_records())
     mentor_df = pd.DataFrame(spreadsheet.worksheet("メンター情報").get_all_records())
     return student_df, mentor_df
