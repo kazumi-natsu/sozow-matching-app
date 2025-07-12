@@ -15,8 +15,7 @@ def load_data():
         creds = ServiceAccountCredentials.from_json_keyfile_name("credentials.json", scope)
     # Cloud（Streamlit Cloud）の場合
     elif "gcp_service_account" in st.secrets and st.secrets["gcp_service_account"].get("private_key"):
-        creds_dict = dict(st.secrets["gcp_service_account"])
-        creds = ServiceAccountCredentials.from_json_keyfile_dict(creds_dict, scope)
+        creds = ServiceAccountCredentials.from_json_keyfile_dict(st.secrets["gcp_service_account"], scope)
     else:
         st.error("認証情報がありません。CloudはSecrets、ローカルはcredentials.jsonが必要です。")
         st.stop()
