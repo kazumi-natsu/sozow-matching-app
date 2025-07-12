@@ -163,5 +163,5 @@ if selected_id:
 else:
     st.info("スクール生を選択してください。")
 
-st.markdown("### 🎯 おすすめメンター一覧")
-st.dataframe(matched[["ニックネーム\n（自動）", "マッチングスコア", "追加可能人数", "属性_性別", "おすすめ理由"]].head(10))
+
+
