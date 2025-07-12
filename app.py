@@ -37,12 +37,12 @@ def calculate_text_similarity(text1, text2):
 def extract_possible_slots(student):
     slots = []
     for col in student.index:
-        if "1on1可能時間" in col and "[" in col:
+        if "定期的" in col and "[" in col and "]" in col:
             value = student[col]
             if isinstance(value, str) and value.strip():
                 days = [d.strip() for d in value.split(",")]
                 try:
-                    hour = col.split("[")[-1].split(":")[0].strip()
+                    hour = col.split("[")[-1].split(":")[0].replace("：", ":").strip()
                     for day in days:
                         if day in ["月", "火", "水", "木", "金", "土", "日"]:
                             slot = f"1on1可能時間_{day}_{hour}00-"
