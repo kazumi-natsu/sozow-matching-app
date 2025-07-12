@@ -90,16 +90,22 @@ def calculate_matching_score(student, mentor):
             bonus += 10
             preferred_matched.append(keyword)
     score += bonus
-    student_gender_pref = student.get("メンターの性別のご希望", "").strip()
-    student_gender = student.get("お子さまの性別", "").strip()
     mentor_gender = mentor.get("属性_性別", "").strip()
-    if student_gender_pref in ["指定なし", "", None]:
-        if student_gender and student_gender == mentor_gender:
+    student_gender = student.get("お子さまの性別", "").strip()
+    student_gender_pref = student.get("メンターの性別のご希望", "").strip()
+
+    # ① 性別希望がある場合 → 一致しなければスコア0で終了
+    if student_gender_pref and student_gender_pref not in ["指定なし", "", None]:
+        if student_gender_pref != mentor_gender:
+            return 0, "性別希望に一致しない"
+        else:
             score += 30
-            reasons.append("性別一致（本人と同じ）")
-    elif student_gender_pref == mentor_gender:
-        score += 30
-        reasons.append("性別一致（希望通り）")
+            reasons.append("性別一致（希望通り）")
+
+    # ② 性別希望がない場合 → 本人と同じ性別なら少し加点
+    elif student_gender and student_gender == mentor_gender:
+        score += 10
+        reasons.append("性別一致（本人と同じ）")
     sim1 = calculate_text_similarity(student.get("お子さまの得意なこと、好きなことを教えてください", ""),
                                      mentor.get("得意なこと・趣味・興味のあること", "") + " " + game_info)
     sim2 = calculate_text_similarity(student.get("興味がある分野をお答えください", ""),
