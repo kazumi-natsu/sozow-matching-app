@@ -23,7 +23,8 @@ def load_data():
     spreadsheet = client.open_by_key("1ISs5mqSRdZfF3NVOt60VFtY8p8HsM0ZkM3sfu3cPzVE")
     student_df = pd.DataFrame(spreadsheet.worksheet("スクール生情報").get_all_records())
     mentor_df = pd.DataFrame(spreadsheet.worksheet("メンター情報").get_all_records())
-    st.write("メンター情報：", mentor_df)
+    st.write("全メンターデータ（スコア計算後）", mentor_df[["ニックネーム\n（自動）", "マッチングスコア", "追加可能人数"]])
+
     return student_df, mentor_df
 
 # --- データ取得 ---
