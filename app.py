@@ -42,14 +42,16 @@ def extract_possible_slots(student):
             if isinstance(value, str) and value.strip():
                 days = [d.strip() for d in value.split(",")]
                 try:
-                    hour = col.split("[")[-1].split(":")[0].replace("：", ":").strip()
+                    hour = col.split("[")[-1].split("〜")[0].replace("：", ":").strip()
+                    hour = hour.replace(":", "")  # 例: "17:00" → "1700"
                     for day in days:
                         if day in ["月", "火", "水", "木", "金", "土", "日"]:
-                            slot = f"1on1可能時間_{day}_{hour}00-"
+                            slot = f"1on1可能時間_{day}_{hour}-"
                             slots.append(slot)
                 except:
                     continue
     return slots
+
 
 # --- マッチングスコア計算 ---
 def calculate_matching_score(student, mentor):
