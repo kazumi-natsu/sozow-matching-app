@@ -20,7 +20,7 @@ def load_data():
         st.error("認証情報がありません。Cloudはsecrets.toml、ローカルはcredentials.jsonが必要です。")
         st.stop()
     client = gspread.authorize(creds)
-    spreadsheet = client.open_by_key("【あなたのスプレッドシートキー】")  # ←ここ差し替え
+    spreadsheet = client.open_by_key("1ISs5mqSRdZfF3NVOt60VFtY8p8HsM0ZkM3sfu3cPzVE")  # ←ここ差し替え
 
     student_df = pd.DataFrame(spreadsheet.worksheet("スクール生情報").get_all_records())
     mentor_df = pd.DataFrame(spreadsheet.worksheet("メンター情報").get_all_records())
