@@ -11,7 +11,6 @@ import os
 @st.cache_data(ttl=600)
 def load_data():
     scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
-    # ローカル or Cloud認証に両対応
     if os.path.exists("credentials.json"):
         creds = ServiceAccountCredentials.from_json_keyfile_name("credentials.json", scope)
     elif "gcp_service_account" in st.secrets and st.secrets["gcp_service_account"].get("private_key"):
@@ -20,14 +19,14 @@ def load_data():
         st.error("認証情報がありません。Cloudはsecrets.toml、ローカルはcredentials.jsonが必要です。")
         st.stop()
     client = gspread.authorize(creds)
-    spreadsheet = client.open_by_key("1ISs5mqSRdZfF3NVOt60VFtY8p8HsM0ZkM3sfu3cPzVE")  # ←ここ差し替え
+    spreadsheet = client.open_by_key("1ISs5mqSRdZfF3NVOt60VFtY8p8HsM0ZkM3sfu3cPzVE")  # ←差し替えて！
 
     student_df = pd.DataFrame(spreadsheet.worksheet("スクール生情報").get_all_records())
     mentor_df = pd.DataFrame(spreadsheet.worksheet("メンター情報").get_all_records())
     game_df = pd.DataFrame(spreadsheet.worksheet("ゲーム一覧").get_all_values())
     return student_df, mentor_df, game_df
 
-# --- ゲーム正規名マッピング作成 ---
+# --- ゲーム正規名マッピング ---
 def get_game_word_map(game_df):
     word_to_canonical = {}
     for i, row in game_df.iterrows():
@@ -41,18 +40,60 @@ def get_game_word_map(game_df):
     game_list_words = list(word_to_canonical.keys())
     return word_to_canonical, game_list_words
 
+# --- 時間帯足切り判定（曜日・時間カラム名設計前提） ---
+def is_time_slot_match(student, mentor):
+    possible_slots = []
+    for col in student.index:
+        if "定期的" in col and "[" in col and "]" in col:
+            value = student[col]
+            if isinstance(value, str) and value.strip():
+                days = [d.strip() for d in value.split(",")]
+                try:
+                    hour = col.split("[")[-1].split("〜")[0].replace("：", ":").strip()
+                    hour = hour.replace(":", "")  # "17:00" → "1700"
+                    for day in days:
+                        if day in ["月", "火", "水", "木", "金", "土", "日"]:
+                            slot = f"1on1可能時間_{day}_{hour}-"
+                            possible_slots.append(slot)
+                except:
+                    continue
+    # メンターの可能時間カラムに1つでも"TRUE"があれば一致とみなす
+    return any(str(mentor.get(slot, "")).strip().lower() == "true" for slot in possible_slots)
+
 # --- マッチングスコア計算 ---
 def calculate_matching_score(student, mentor, game_list_words, word_to_canonical):
-    reasons = []
-    score = 0
+    # === 必須足切り ===
+    # (1) 時間帯
+    if not is_time_slot_match(student, mentor):
+        return 0, "時間帯が一致しない"
 
-    # 生徒記述まとめ
+    # (2) 担当枠
+    if int(mentor.get("追加可能人数", 0)) < 1:
+        return 0, "担当枠が空いていない"
+
+    # (3) 性別希望の足切り・加点
+    mentor_gender = mentor.get("属性_性別", "").strip()
+    student_gender = student.get("お子さまの性別", "").strip()
+    student_gender_pref = student.get("メンターの性別のご希望", "").strip()
+    score = 0
+    reasons = []
+
+    if student_gender_pref and student_gender_pref not in ["指定なし", "", None]:
+        # 希望があれば一致しなければ除外、一致しても加点はしない
+        if student_gender_pref != mentor_gender:
+            return 0, "性別希望に一致しない"
+        # 一致しても加点なし
+    elif student_gender and student_gender == mentor_gender:
+        # 性別希望未指定なら「本人性別=メンター性別」で+10点
+        score += 10
+        reasons.append("性別一致（本人と同じ）")
+
+    # === ゲームマッチ加点 ===
     student_text = (
         str(student.get("お子さまの得意なこと、好きなことを教えてください", ""))
         + str(student.get("興味がある分野をお答えください", ""))
         + str(student.get("お子さまがSOZOWスクールに期待していること、楽しみにしていることなどを教えてください", ""))
     )
-
     matched_games_canonical = set()
     max_game_point = 0
 
@@ -84,12 +125,11 @@ def calculate_matching_score(student, mentor, game_list_words, word_to_canonical
     if max_game_point > 0 and matched_games_canonical:
         reasons.append(f"ゲームマッチ（{','.join(sorted(matched_games_canonical))}）{max_game_point}点")
 
-    # 趣味マッチ（テキスト類似度×30点）
+    # === 趣味マッチ（テキスト類似度×30点） ===
     mentor_hobby_text = (
         str(mentor.get("得意なこと趣味興味のあること", ""))
         + " " + str(mentor.get("特にどんなスクール生のサポートが得意か", ""))
     )
-
     def calculate_text_similarity(text1, text2):
         if not text1 or not text2:
             return 0.0
@@ -98,14 +138,13 @@ def calculate_matching_score(student, mentor, game_list_words, word_to_canonical
         return cosine_similarity([vectors[0]], [vectors[1]])[0][0]
 
     similarity_score = calculate_text_similarity(student_text, mentor_hobby_text)
-    hobby_point = similarity_score * 30  # ←係数30
+    hobby_point = similarity_score * 30
     score += hobby_point
     if hobby_point > 0:
         reasons.append(f"趣味・興味マッチ {hobby_point:.1f}点")
 
     if not reasons:
         reasons.append("最低条件は満たしています")
-
     return score, "＋".join(reasons)
 
 # --- Streamlit UI ---
